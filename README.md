@@ -4,7 +4,7 @@ A classic Snake game built using **React Native** and **Expo**, utilizing `react
 
 ## Overview
 
-This repository branch (`naseef`) houses the initial, traditional implementation of the game. It relies on standard React hooks (`useState`, `useEffect`) and a time-based interval (`setInterval`) to manage game states, snake movement, score tracking, and collision detection. This serves as our foundational baseline before refactoring into a modern, high-performance architecture.
+This repository branch (`Master`) houses the initial, traditional implementation of the game. It relies on standard React hooks (`useState`, `useEffect`) and a time-based interval (`setInterval`) to manage game states, snake movement, score tracking, and collision detection. This serves as our foundational baseline before refactoring into a modern, high-performance architecture.
 
 ## Architecture & State Management
 
