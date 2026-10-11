@@ -1,8 +1,9 @@
-import { Coordinate } from "@/types/types";
-
-export const randomFood = (maxX: number, maxY: number): Coordinate => {
+const randomFoodWorklet = (xMax: number, yMax: number) => {
+  "worklet";
+  // توليد عشوائي آمن داخل الـ Worklet
   return {
-    x: Math.floor(Math.random() * maxX),
-    y: Math.floor(Math.random() * maxY),
+    x: Math.floor(Math.random() * xMax),
+    y: Math.floor(Math.random() * yMax),
   };
 };
+export { randomFoodWorklet };

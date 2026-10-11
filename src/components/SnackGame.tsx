@@ -12,129 +12,95 @@ import {
 } from "@/constants/Variables";
 import { useSnakeGesture } from "@/hooks/useSnakeGesture";
 import { Coordinate } from "@/types/types";
-import { checkEatsFood } from "@/utils/checkEatsFood";
-import { checkGameOver } from "@/utils/checkGameOver";
-import { randomFood } from "@/utils/randomFood";
-import { useEffect } from "react";
+import { checkEatsFoodWorklet } from "@/utils/checkEatsFood";
+import { checkGameOverWorklet } from "@/utils/checkGameOver";
+import { randomFoodWorklet } from "@/utils/randomFood";
 import Animated, {
   useAnimatedStyle,
+  useFrameCallback,
   useSharedValue,
 } from "react-native-reanimated";
 
-// Interface representing the entire game state structure
-// interface Settings {
-//   direction: Directions; // Current movement direction of the snake
-//   snack: Coordinate[]; // Array of coordinates representing snake body segments
-//   food: Coordinate; // Current coordinate of the food item on the grid
-//   isGameOver: Boolean; // Flag indicating if the game has ended
-//   IsPaused: Boolean; // Flag indicating if the game is paused
-//   score: number; // Current player score
-// }
-
-// Initial default values to setup the game state on mount or reset
-// const initialSettign: Settings = {
-//   direction: Directions.RIGHT,
-//   IsPaused: false,
-//   food: FOOD_INITIAL_POSITION,
-//   isGameOver: false,
-//   snack: SNACK_INITIAL_POSITION,
-//   score: 0,
-// };
-
 const SnackGame = () => {
-  // Single source of truth state containing all game variables
-  // const [setting, setSetting] = useState<Settings>(initialSettign);
-  const isPressed = useSharedValue<Boolean>(false);
+  const isPressed = useSharedValue<boolean>(false);
   const offset = useSharedValue<Coordinate>({ x: 0, y: 0 });
   const direction = useSharedValue<Directions>(Directions.RIGHT);
   const snack = useSharedValue<Coordinate[]>(SNACK_INITIAL_POSITION);
   const food = useSharedValue<Coordinate>(FOOD_INITIAL_POSITION);
   const isPaused = useSharedValue<boolean>(false);
+  const isGameOver = useSharedValue<boolean>(false);
   const score = useSharedValue<number>(0);
+  const accumulator = useSharedValue<number>(0);
+
   const gestureDetector = useSnakeGesture();
-  // ..............
-  // const { IsPaused, direction, food, isGameOver, score, snack } = setting;
 
-  // Pan gesture handler to translate screen swipes into snake directions
+  // دوال مساعدة مع توجيه 'worklet' للعمل بأمان تام على الـ UI Thread
 
-  // Core movement engine handling snake coordinates update and collision rules
-  const moveSnake = () => {
-    const snakeHead = setting.snack[0];
-    const newHead = { ...snakeHead }; // Create a shallow copy for the new head position
+  // حلقة الإطارات الذكية المزودة بمركم الوقت (Time Accumulator) وحماية الخلفية
+  useFrameCallback((frameInfo) => {
+    "worklet";
+    if (isGameOver.value || isPaused.value) return;
 
-    // Check if the current head position violates game boundaries
-    if (checkGameOver(snakeHead, GAME_BOUNDS)) {
-      setSetting((prev) => ({ ...prev, isGameOver: !prev.isGameOver }));
-      return;
+    const dt = frameInfo.timeSincePreviousFrame ?? 0;
+
+    // 🛡️ صمام أمان الخلفية: منع تراكم الوقت لو خرج المستخدم من التطبيق وعاد
+    const safeDt = Math.min(dt, 100);
+
+    accumulator.value += safeDt;
+
+    // تنفيذ خطوة الثعبان فقط عند بلوغ الفاصل الزمني المطلوب (مثلاً كل 150ms)
+    if (accumulator.value >= MOVE_INTERVAL) {
+      accumulator.value = 0;
+
+      const snakeHead = snack.value[0];
+      const newHead = { ...snakeHead };
+
+      // 1. فحص الحدود
+      if (checkGameOverWorklet(snakeHead, GAME_BOUNDS)) {
+        isGameOver.value = true;
+        return;
+      }
+
+      // 2. تحديث الاتجاه للرأس الجديد
+      switch (direction.value) {
+        case Directions.UP:
+          newHead.y -= 1;
+          break;
+        case Directions.DOWN:
+          newHead.y += 1;
+          break;
+        case Directions.LEFT:
+          newHead.x -= 1;
+          break;
+        case Directions.RIGHT:
+          newHead.x += 1;
+          break;
+        default:
+          break;
+      }
+
+      // 3. فحص أكل الطعام والنمو
+      if (checkEatsFoodWorklet(newHead, food.value)) {
+        snack.value = [newHead, ...snack.value];
+        food.value = randomFoodWorklet(GAME_BOUNDS.xMax, GAME_BOUNDS.yMax);
+        score.value += SCORE_INCREMENT;
+      } else {
+        snack.value = [newHead, ...snack.value.slice(0, -1)];
+      }
     }
-
-    // Update head coordinates based on the active movement direction
-    switch (setting.direction) {
-      case Directions.UP:
-        newHead.y += 1;
-        break;
-      case Directions.DOWN:
-        newHead.x -= 1;
-        break;
-      case Directions.LEFT:
-        newHead.x -= 1;
-        break;
-      case Directions.RIGHT:
-        newHead.x += 1;
-        break;
-      default:
-        break;
-    }
-
-    // Check if the new head coordinate intersects with the food position
-    if (checkEatsFood({ head: newHead, area: 2, food: setting.food })) {
-      setSetting((prev) => ({
-        ...prev,
-        snack: [newHead, ...prev.snack], // Grow snake by keeping the tail
-      }));
-      setSetting((prev) => ({
-        ...prev,
-        food: randomFood(GAME_BOUNDS.xMax, GAME_BOUNDS.yMax), // Spawn new random food
-      }));
-      setSetting((prev) => ({
-        ...prev,
-        score: prev.score + SCORE_INCREMENT, // Increment player score
-      }));
-    } else {
-      setSetting((prev) => ({
-        ...prev,
-        snack: [newHead, ...prev.snack.slice(0, -1)], // Standard movement: add head and remove last tail segment
-      }));
-    }
-  };
-
-  // Main game loop using setInterval to trigger snake movement at regular time intervals
-  useEffect(() => {
-    if (!setting.isGameOver) {
-      const intervalId = setInterval(() => {
-        !setting.IsPaused && moveSnake();
-      }, MOVE_INTERVAL);
-
-      return () => {
-        clearInterval(intervalId); // Cleanup timer interval on unmount or state update
-      };
-    }
-  }, [setting.isGameOver, setting.IsPaused]);
+  });
 
   const animated = useAnimatedStyle(() => {
     return {
-      left: offset.value.x * 10,
-      top: offset.value.y * 10,
+      transform: [
+        { translateX: offset.value.x },
+        { translateY: offset.value.y },
+      ],
     };
   });
+
   return (
-    <SafeAreaView
-      style={{
-        flex: 1,
-        backgroundColor: Colors.primary,
-      }}
-    >
-      {/* Gesture detector wrapper covering the play area */}
+    <SafeAreaView style={{ flex: 1, backgroundColor: Colors.primary }}>
       <GestureDetector gesture={gestureDetector}>
         <View
           style={{
@@ -147,8 +113,6 @@ const SnackGame = () => {
             borderRadius: 5,
           }}
         >
-          {/* Component rendering individual snake segments based on coordinates array */}
-          {/* <Snack snack={setting.snack} /> */}
           <Animated.View style={[setStyle.snack, animated]} />
         </View>
       </GestureDetector>

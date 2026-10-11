@@ -1,12 +1,13 @@
 import { Bounds, Coordinate } from "@/types/types";
 
-const checkGameOver = (snackHead: Coordinate, boundaries: Bounds): Boolean => {
+const checkGameOverWorklet = (head: Coordinate, bounds: Bounds) => {
+  "worklet";
   return (
-    snackHead.x < boundaries.xMIn ||
-    snackHead.x > boundaries.xMax ||
-    snackHead.y < boundaries.yMin ||
-    snackHead.y > boundaries.yMax
+    head.x < bounds.xMIn ||
+    head.x > bounds.xMax ||
+    head.y < bounds.yMin ||
+    head.y > bounds.yMax
   );
 };
 
-export { checkGameOver };
+export { checkGameOverWorklet };
