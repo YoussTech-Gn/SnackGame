@@ -14,9 +14,14 @@ const useSnakeGesture = () => {
   const food = useSharedValue<Coordinate>(FOOD_INITIAL_POSITION);
   const isPaused = useSharedValue<boolean>(false);
   const score = useSharedValue<number>(0);
+  const startX = useSharedValue<number>(0);
+  const startY = useSharedValue<number>(0);
   const gesture = Gesture.Pan()
     .onBegin(() => {
       isPressed.value = true;
+      // تثبيت آخر موضع وصل إليه العنصر كمرجع أساسي للحركة الجديدة
+      startX.value = offset.value.x;
+      startY.value = offset.value.y;
     })
     .onUpdate((e) => {
       const { translationX, translationY } = e;
@@ -39,9 +44,10 @@ const useSnakeGesture = () => {
         }
       }
 
+      // الحساب الصحيح: الموضع المرجعي الثابت + الإزاحة الحالية للتنقل بسلاسة بلا قفزات
       offset.value = {
-        x: offset.value.x + translationX,
-        y: offset.value.y + translationY,
+        x: startX.value + translationX,
+        y: startY.value + translationY,
       };
     })
     .onFinalize(() => {
