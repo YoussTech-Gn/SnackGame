@@ -1,10 +1,6 @@
 import { Colors } from "@/constants/colors";
-import { View } from "react-native";
-import {
-  Directions,
-  Gesture,
-  GestureDetector,
-} from "react-native-gesture-handler";
+import { StyleSheet, View } from "react-native";
+import { Directions, GestureDetector } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import {
@@ -14,55 +10,52 @@ import {
   SCORE_INCREMENT,
   SNACK_INITIAL_POSITION,
 } from "@/constants/Variables";
+import { useSnakeGesture } from "@/hooks/useSnakeGesture";
 import { Coordinate } from "@/types/types";
 import { checkEatsFood } from "@/utils/checkEatsFood";
 import { checkGameOver } from "@/utils/checkGameOver";
 import { randomFood } from "@/utils/randomFood";
-import { useEffect, useState } from "react";
-import Snack from "./Snack";
+import { useEffect } from "react";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+} from "react-native-reanimated";
 
 // Interface representing the entire game state structure
-interface Settings {
-  direction: Directions; // Current movement direction of the snake
-  snack: Coordinate[]; // Array of coordinates representing snake body segments
-  food: Coordinate; // Current coordinate of the food item on the grid
-  isGameOver: Boolean; // Flag indicating if the game has ended
-  IsPaused: Boolean; // Flag indicating if the game is paused
-  score: number; // Current player score
-}
+// interface Settings {
+//   direction: Directions; // Current movement direction of the snake
+//   snack: Coordinate[]; // Array of coordinates representing snake body segments
+//   food: Coordinate; // Current coordinate of the food item on the grid
+//   isGameOver: Boolean; // Flag indicating if the game has ended
+//   IsPaused: Boolean; // Flag indicating if the game is paused
+//   score: number; // Current player score
+// }
 
 // Initial default values to setup the game state on mount or reset
-const initialSettign: Settings = {
-  direction: Directions.RIGHT,
-  IsPaused: false,
-  food: FOOD_INITIAL_POSITION,
-  isGameOver: false,
-  snack: SNACK_INITIAL_POSITION,
-  score: 0,
-};
+// const initialSettign: Settings = {
+//   direction: Directions.RIGHT,
+//   IsPaused: false,
+//   food: FOOD_INITIAL_POSITION,
+//   isGameOver: false,
+//   snack: SNACK_INITIAL_POSITION,
+//   score: 0,
+// };
 
 const SnackGame = () => {
   // Single source of truth state containing all game variables
-  const [setting, setSetting] = useState<Settings>(initialSettign);
+  // const [setting, setSetting] = useState<Settings>(initialSettign);
+  const isPressed = useSharedValue<Boolean>(false);
+  const offset = useSharedValue<Coordinate>({ x: 0, y: 0 });
+  const direction = useSharedValue<Directions>(Directions.RIGHT);
+  const snack = useSharedValue<Coordinate[]>(SNACK_INITIAL_POSITION);
+  const food = useSharedValue<Coordinate>(FOOD_INITIAL_POSITION);
+  const isPaused = useSharedValue<boolean>(false);
+  const score = useSharedValue<number>(0);
+  const gestureDetector = useSnakeGesture();
+  // ..............
+  // const { IsPaused, direction, food, isGameOver, score, snack } = setting;
 
   // Pan gesture handler to translate screen swipes into snake directions
-  const gesture = Gesture.Pan().onUpdate((e) => {
-    const { translationX, translationY } = e;
-    // Compare horizontal and vertical translation to determine primary swipe axis
-    if (Math.abs(translationX) > Math.abs(translationY)) {
-      if (translationX > 0) {
-        setSetting((prev) => ({ ...prev, direction: Directions.RIGHT }));
-      } else {
-        setSetting((prev) => ({ ...prev, direction: Directions.LEFT }));
-      }
-    } else {
-      if (translationY > 0) {
-        setSetting((prev) => ({ ...prev, direction: Directions.DOWN }));
-      } else {
-        setSetting((prev) => ({ ...prev, direction: Directions.UP }));
-      }
-    }
-  });
 
   // Core movement engine handling snake coordinates update and collision rules
   const moveSnake = () => {
@@ -128,6 +121,12 @@ const SnackGame = () => {
     }
   }, [setting.isGameOver, setting.IsPaused]);
 
+  const animated = useAnimatedStyle(() => {
+    return {
+      left: offset.value.x * 10,
+      top: offset.value.y * 10,
+    };
+  });
   return (
     <SafeAreaView
       style={{
@@ -136,7 +135,7 @@ const SnackGame = () => {
       }}
     >
       {/* Gesture detector wrapper covering the play area */}
-      <GestureDetector gesture={gesture}>
+      <GestureDetector gesture={gestureDetector}>
         <View
           style={{
             backgroundColor: Colors.background,
@@ -149,7 +148,8 @@ const SnackGame = () => {
           }}
         >
           {/* Component rendering individual snake segments based on coordinates array */}
-          <Snack snack={setting.snack} />
+          {/* <Snack snack={setting.snack} /> */}
+          <Animated.View style={[setStyle.snack, animated]} />
         </View>
       </GestureDetector>
     </SafeAreaView>
@@ -157,3 +157,13 @@ const SnackGame = () => {
 };
 
 export default SnackGame;
+
+const setStyle = StyleSheet.create({
+  snack: {
+    width: 16,
+    height: 16,
+    backgroundColor: Colors.primary,
+    position: "absolute",
+    borderRadius: 8,
+  },
+});
